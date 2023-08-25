@@ -43,6 +43,8 @@ void signalHandler(int n) {
 	exit(0);
 }
 
+std::unordered_set<std::string> filterURLs;
+
 static u_int32_t get_payload (struct nfq_data *tb) {
 	int id = 0;
 	struct nfqnl_msg_packet_hdr *ph;
@@ -117,10 +119,25 @@ static u_int32_t get_payload (struct nfq_data *tb) {
 		http[i] = data[i+20+20+tcpOffset];
 	}
 
-	// if (strstr(http, filterURL) != NULL) {
-	// 	return 0;
-	// }
+	std::string strHttp(reinterpret_cast<char*>(http));
 
+	std::string target = "Host: ";
+    size_t sidx = strHttp.find("Host: ");
+    
+    if (sidx != std::string::npos) {
+        sidx += 6;
+        size_t eidx = strHttp.find("\r\n", sidx);
+        if (eidx != std::string::npos) {
+            std::string host = strHttp.substr(sidx, eidx - sidx);
+
+			std::unordered_set<std::string>::const_iterator iter = filterURLs.find(host);
+
+			if (iter != filterURLs.end()) {
+				return 0;
+			}
+        }
+    }
+	
 	fputc('\n', stdout);
 
 	return id;
@@ -155,7 +172,6 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
-	std::unordered_set<std::string> filterURLs;
 	std::string filterURL;
 
 	while (std::getline(filterFile, filterURL)) {
